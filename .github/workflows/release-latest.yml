@@ -18,38 +18,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup JDK
-        uses: actions/setup-java@v5
-        with:
-          java-version: "25"
-          distribution: "temurin"
-
-      - name: Elevate wrapper permissions
-        run: chmod +x ./gradlew
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          dependency-graph: generate-and-submit
-
-      - name: Build Plugin
-        run: ./gradlew clean build --no-daemon
-
       - name: Prepare release artifacts
         run: |
-          PLUGIN_NAME=$(grep '^plugin_name=' gradle.properties | cut -d'=' -f2)
-          PLUGIN_VERSION=$(grep '^plugin_version=' gradle.properties | cut -d'=' -f2)
-          VERSIONED_JAR="build/libs/${PLUGIN_NAME}-${PLUGIN_VERSION}.jar"
-
-          if [ ! -f "$VERSIONED_JAR" ]; then
-            VERSIONED_JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+          VERSIONED_JAR=$(find . -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+          if [ -z "$VERSIONED_JAR" ]; then
+            echo "No plugin jar found in repo root."
+            exit 1
           fi
 
+          PLUGIN_NAME="ZenithProxyShopAutomation"
           cp "$VERSIONED_JAR" "${PLUGIN_NAME}.jar"
-          cp "$VERSIONED_JAR" "${PLUGIN_NAME}-${PLUGIN_VERSION}.jar"
+          BASENAME=$(basename "$VERSIONED_JAR")
 
           echo "PLUGIN_NAME=$PLUGIN_NAME" >> "$GITHUB_ENV"
-          echo "PLUGIN_VERSION=$PLUGIN_VERSION" >> "$GITHUB_ENV"
+          echo "VERSIONED_BASENAME=$BASENAME" >> "$GITHUB_ENV"
 
       - name: Publish / update latest release
         uses: ncipollo/release-action@v1
@@ -61,4 +43,4 @@ jobs:
           replacesArtifacts: true
           makeLatest: true
           removeArtifacts: true
-          artifacts: "${{ env.PLUGIN_NAME }}.jar,${{ env.PLUGIN_NAME }}-${{ env.PLUGIN_VERSION }}.jar"
+          artifacts: "${{ env.PLUGIN_NAME }}.jar,${{ env.VERSIONED_BASENAME }}"
